@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+.node {
+  cursor: pointer;
+}
+
+.node:hover {
+  stroke: #000;
+  stroke-width: 1.5px;
+}
+
+.node--leaf {
+  fill: #09314;
+}
+
+.label {
+  font: 9px "Lucida Sans Typewriter", "Lucida Console", Monaco, "Bitstream Vera Sans Mono", monospace;
+  text-anchor: middle;
+  text-rendering: optimizeLegibility;
+  font-weight: bolder;
+  text-shadow: 0 1px 0 #000, 1px 0 0 #000, -1px 0 0 #000, 0 -1px 0 #000;
+}
+
+.label,
+.node--root,
+.node--leaf {
+  pointer-events: none;
+}
+
+</style>
+<svg width="650" height="650"></svg>
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script>
+
+
+var svg = d3.select("svg"),
+    margin = 20,
+    diameter = +svg.attr("width"),
+    g = svg.append("g").attr("transform", "translate(" + diameter / 2 + "," + diameter / 2 + ")");
+
+var color = d3.scaleLinear()
+    .domain([0, 2])
+    .range(["hsl(208,100%,97.1%)",  "hsl(207.7,13.1%,19.4%)"])
+    .interpolate(d3.interpolateHcl);
+
+var pack = d3.pack()
+    .size([diameter - margin, diameter - margin])
+    .padding(2);
+
+d3.json("Bots_timezones.json", function(error, root) {
+  if (error) throw error;
+
+  root = d3.hierarchy(root)
+      .sum(function(d) { return (d.size+20); })
+      .sort(function(a, b) { return b.value - a.value; });
+
+  var focus = root,
+      nodes = pack(root).descendants(),
+      view;
+
+  var circle = g.selectAll("circle")
+    .data(nodes)
+    .enter().append("circle")
+      .attr("r", function(d) { return d.r; })
+      .attr("class", function(d) { return d.parent ? d.children ? "node" : "node node--leaf" : "node node--root"; })
+      .style("fill", function(d) { return d.children ? color(d.depth) : null; })
+      .on("click", function(d) { if (focus !== d) zoom(d), d3.event.stopPropagation(); });
+
+  var text = g.selectAll("text")
+    .data(nodes)
+    .enter().append("text")
+      .attr("class", "label")
+      .style("fill", 'white')
+      .style("fill-opacity", function(d) { return d.parent === root ? 1 : 0; })      
+      .style("display", function(d) { return d.parent === root ? "inline" : "none"; })
+      .style("font-size", function(d) {
+        if(d.data.size != undefined) {return 1.5 + "em"}
+        else {
+          
+          if(d.data.name == "2009" ||
+                d.data.name == "2010" ||
+                d.data.name == "2011" ||
+                d.data.name == "2012" ||
+                d.data.name == "2013" || 
+                d.data.name == "2014" ||
+                d.data.name == "2015" || 
+                d.data.name == "2016" ||
+                d.data.name == "2017"
+                ) {return Math.max(d.r*0.6, 12) + "px"}
+          else{
+            if (d.data.name == "Abu Dhabi"){return 8 + "px"}
+            else if (d.data.name == "Paris"){return 7 + "px"}
+            else if (d.data.name == "Madrid"){return 7 + "px"}
+            else if (d.data.name == "Jakarta"){return 7 + "px"}
+            else if (d.data.name == "Mountain Time"){return 7.5 + "px"}
+            else{
+              if (d.r > 130) {return Math.max(d.r/4, 15) + "px"}
+              else if (d.r < 15){return Math.max(d.r*0.8, 4) + "px"}
+              else {return Math.max((d.r/4), 10) + "px"}
+
+            }
+            
+          }
+        };})
+      .text(function(d) { // labels
+        if(d.data.size != undefined) 
+          {var label = (d.data.name + " | " + d.data.size)
+           return (label + " followers")}
+        else {return d.data.name }});
+  var node = g.selectAll("circle,text");
+//+ " " + d.r
+
+  svg
+      .style("background", color(-1))
+      .on("click", function() { zoom(root); });
+
+  zoomTo([root.x, root.y, root.r * 2 + margin]);
+
+  function zoom(d) {
+    var focus0 = focus; focus = d;
+
+    var transition = d3.transition()
+        .duration(d3.event.altKey ? 7500 : 750)
+        .tween("zoom", function(d) {
+          var i = d3.interpolateZoom(view, [focus.x, focus.y, focus.r * 2 + margin]);
+          return function(t) { zoomTo(i(t)); };
+        });
+
+    transition.selectAll("text")
+      .filter(function(d) { return d.parent === focus || this.style.display === "inline"; })
+        .style("fill-opacity", function(d) { return d.parent === focus ? 1 : 0; })
+        .on("start", function(d) { if (d.parent === focus) this.style.display = "inline"; })
+        .on("end", function(d) { if (d.parent !== focus) this.style.display = "none"; });
+  } // end of function zoom(d)
+
+  function zoomTo(v) {
+    var k = diameter / v[2]; view = v;
+    node.attr("transform", function(d) { return "translate(" + (d.x - v[0]) * k + "," + (d.y - v[1]) * k + ")"; });
+    circle.attr("r", function(d) { return d.r * k; });
+  } // end of function zoomTo(v)
+});
+
+</script>
